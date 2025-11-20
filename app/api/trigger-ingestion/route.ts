@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
       console.log(`📦 Processing batch ${batchCount} (offset: ${batchOffset})...`)
       
       try {
+        // Add timeout to prevent hanging requests (5 minutes max)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+
         const response = await fetch(`${supabaseUrl}/functions/v1/news-ingestion`, {
           method: 'POST',
           headers: {
@@ -47,8 +51,11 @@ export async function POST(request: NextRequest) {
             timestamp: new Date().toISOString(),
             batch_size: batchSize,
             batch_offset: batchOffset
-          })
+          }),
+          signal: controller.signal
         })
+
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -86,8 +93,13 @@ export async function POST(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, 1000))
         
       } catch (batchError) {
-        console.error(`❌ Error in batch ${batchCount}:`, batchError)
-        allErrors.push(`Batch ${batchCount}: ${batchError instanceof Error ? batchError.message : String(batchError)}`)
+        if (batchError instanceof Error && batchError.name === 'AbortError') {
+          console.error(`⏱️  Batch ${batchCount} timed out after 5 minutes`)
+          allErrors.push(`Batch ${batchCount}: Request timeout (exceeded 5 minutes)`)
+        } else {
+          console.error(`❌ Error in batch ${batchCount}:`, batchError)
+          allErrors.push(`Batch ${batchCount}: ${batchError instanceof Error ? batchError.message : String(batchError)}`)
+        }
         break // Stop processing on errors
       }
     }

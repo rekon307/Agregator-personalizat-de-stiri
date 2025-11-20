@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./../styles/globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import AuthListener from "@/components/custom/auth-listener";
 
-const inter = Inter({ subsets: ["latin"] });
+// Font loading is disabled to avoid network dependency during build
+// Using system fonts as fallback via Tailwind's font-sans
+// const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Personalized News Aggregator",
@@ -18,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-        <body className={inter.className}>
+        <body className="font-sans antialiased">
             <ToastProvider>
                 <AuthListener />
                 {children}

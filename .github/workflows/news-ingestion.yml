@@ -2,8 +2,8 @@ name: News Ingestion Scheduler
 
 on:
   schedule:
-    # Run every 24 hours (at :00 minutes)
-    - cron: '0 */24 * * *'
+    # Run every 2 hours (at :00 minutes)
+    - cron: '0 */2 * * *'
   # Allow manual triggering for testing
   workflow_dispatch:
 

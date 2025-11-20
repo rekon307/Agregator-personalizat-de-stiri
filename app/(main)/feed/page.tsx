@@ -4,6 +4,7 @@ import ArticleCardSkeleton from '@/components/custom/article-card-skeleton';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import type { UserVisibleArticle, Category } from '@/lib/types/database';
 
 function FeedSkeleton() {
   return (
@@ -127,13 +128,13 @@ async function FeedData() {
   }
 
   // Map articles to include category name from source data
-  const articlesWithCategories = (articlesData || []).map((article: any) => {
+  const articlesWithCategories = (articlesData || []).map((article: UserVisibleArticle) => {
     // Find the source info for this article
     const sourceInfo = sourcesData?.find(s => s.id === article.source_id);
     // Handle both object and array format for categories
-    const categories = sourceInfo?.categories as any;
+    const categories = sourceInfo?.categories as Category | Category[] | null | undefined;
     let categoryName = 'Unknown';
-    
+
     if (categories) {
       if (Array.isArray(categories)) {
         categoryName = categories[0]?.name || 'Unknown';
@@ -141,7 +142,7 @@ async function FeedData() {
         categoryName = categories.name || 'Unknown';
       }
     }
-    
+
     return {
       ...article,
       category: categoryName,
