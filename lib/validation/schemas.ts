@@ -274,19 +274,23 @@ export function parseFormData<T extends z.ZodType>(
     // Convert FormData to plain object
     const data: Record<string, any> = {};
 
-    // Get all keys from FormData
-    const keys = Array.from(formData.keys());
-    const uniqueKeys = Array.from(new Set(keys));
+    // Get all keys from FormData (FormData doesn't have keys() in all TS versions)
+    // Use entries() instead and collect unique keys
+    const seenKeys = new Set<string>();
+    const entries = Array.from(formData.entries());
 
-    uniqueKeys.forEach((key) => {
-      const allValues = formData.getAll(key);
+    entries.forEach(([key]) => {
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        const allValues = formData.getAll(key);
 
-      // Handle arrays (e.g., multiple checkboxes with same name)
-      if (key.endsWith('[]') || allValues.length > 1) {
-        const cleanKey = key.replace('[]', '');
-        data[cleanKey] = allValues;
-      } else {
-        data[key] = allValues[0];
+        // Handle arrays (e.g., multiple checkboxes with same name)
+        if (key.endsWith('[]') || allValues.length > 1) {
+          const cleanKey = key.replace('[]', '');
+          data[cleanKey] = allValues;
+        } else {
+          data[key] = allValues[0];
+        }
       }
     });
 
