@@ -25,6 +25,13 @@ import {
   shouldShowReadingTime,
 } from '@/lib/utils/reading-time';
 import { cleanText } from '@/lib/utils/text-sanitization';
+import { getCachedArticle, setCachedArticle } from '@/lib/cache/article-cache';
+
+// Enable ISR with revalidation every 5 minutes
+export const revalidate = 300;
+
+// Dynamic segments config - static params will be generated at build time
+export const dynamicParams = true;
 
 interface Article {
   id: string;
@@ -60,10 +67,18 @@ function isUUID(str: string): boolean {
 
 async function getArticle(slugOrId: string): Promise<Article | null> {
   try {
+    // Try to get from cache first (only for UUID lookups)
+    const isId = isUUID(slugOrId);
+    if (isId) {
+      const cached = await getCachedArticle(slugOrId);
+      if (cached) {
+        return cached as Article;
+      }
+    }
+
     const supabase = createClient();
 
     // Determine if we're looking for a slug or UUID
-    const isId = isUUID(slugOrId);
     const searchField = isId ? 'id' : 'slug';
 
     const { data: article, error } = await supabase
@@ -123,6 +138,9 @@ async function getArticle(slugOrId: string): Promise<Article | null> {
       ...article,
       categories: categoryInfo,
     };
+
+    // Cache the article for future requests
+    await setCachedArticle(enrichedArticle.id, enrichedArticle as any);
 
     return enrichedArticle;
   } catch (error) {
@@ -349,4 +367,55 @@ export default function ArticlePage({ params }: { params: { id: string } }) {
       </Suspense>
     </ArticleErrorBoundary>
   );
+}
+
+// Generate static params for the most recent articles at build time
+export async function generateStaticParams() {
+  const supabase = createClient();
+
+  // Get the 100 most recent articles to pre-generate at build time
+  const { data: articles } = await supabase
+    .from('articles')
+    .select('id, slug')
+    .order('published_at', { ascending: false })
+    .limit(100);
+
+  if (!articles) {
+    return [];
+  }
+
+  // Return both ID and slug variants for better coverage
+  return articles.flatMap((article) => [{ id: article.id }, { id: article.slug }]);
+}
+
+// Generate metadata for SEO
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const article = await getArticle(params.id);
+
+  if (!article) {
+    return {
+      title: 'Article Not Found',
+      description: 'The requested article could not be found.',
+    };
+  }
+
+  return {
+    title: cleanText(article.title) || 'Article',
+    description:
+      cleanText(article.summary)?.slice(0, 160) || 'Read this article on our news aggregator',
+    openGraph: {
+      title: cleanText(article.title) || 'Article',
+      description: cleanText(article.summary)?.slice(0, 160),
+      images: article.image_url ? [{ url: article.image_url }] : [],
+      type: 'article',
+      publishedTime: article.published_at,
+      authors: article.author ? [article.author] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: cleanText(article.title) || 'Article',
+      description: cleanText(article.summary)?.slice(0, 160),
+      images: article.image_url ? [article.image_url] : undefined,
+    },
+  };
 }
