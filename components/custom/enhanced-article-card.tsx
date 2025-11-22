@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bookmark, BookmarkCheck, Heart, Folder, Tag, MoreHorizontal, Eye, EyeOff } from 'lucide-react';
+import {
+  Bookmark,
+  BookmarkCheck,
+  Heart,
+  Folder,
+  Tag,
+  MoreHorizontal,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/toast';
 import { analytics } from '@/lib/analytics';
 import { getCategoryStyle } from '@/lib/category-styles';
+import { cleanText } from '@/lib/utils/text-sanitization';
 import Link from 'next/link';
 
 interface SavedFolder {
@@ -45,26 +55,6 @@ interface EnhancedArticleCardProps {
   tags: SavedTag[];
 }
 
-function cleanText(text: string | null | undefined): string {
-  if (!text) return '';
-  
-  return text
-    // Remove CDATA sections
-    .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-    // Decode common HTML entities
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    // Remove any remaining HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Clean up extra whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export default function EnhancedArticleCard({
   article,
   userId,
@@ -72,7 +62,7 @@ export default function EnhancedArticleCard({
   onArticleUpdate,
   onDataRefresh,
   folders,
-  tags
+  tags,
 }: EnhancedArticleCardProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -80,13 +70,15 @@ export default function EnhancedArticleCard({
   const [currentFolderId, setCurrentFolderId] = useState(article.folder_id);
   const [currentTags, setCurrentTags] = useState<SavedTag[]>(article.tags || []);
   const [showControls, setShowControls] = useState(false);
-  
+
   const supabase = createClient();
   const { showToast } = useToast();
 
   useEffect(() => {
     async function checkSavedAndLikedStatus() {
-      if (!userId || !article.id) return;
+      if (!userId || !article.id) {
+        return;
+      }
 
       // Check saved status
       const { data: savedData, error: savedError } = await supabase
@@ -95,7 +87,7 @@ export default function EnhancedArticleCard({
         .eq('user_id', userId)
         .eq('article_id', article.id)
         .single();
-      
+
       if (savedError && savedError.code !== 'PGRST116') {
         console.error('Error checking saved status:', savedError);
       }
@@ -108,7 +100,7 @@ export default function EnhancedArticleCard({
         .eq('user_id', userId)
         .eq('article_id', article.id)
         .single();
-      
+
       if (likedError && likedError.code !== 'PGRST116') {
         console.error('Error checking liked status:', likedError);
       }
@@ -123,7 +115,7 @@ export default function EnhancedArticleCard({
       showToast({
         type: 'warning',
         title: 'Login Required',
-        message: 'You need to be logged in to like articles.'
+        message: 'You need to be logged in to like articles.',
       });
       return;
     }
@@ -142,13 +134,7 @@ export default function EnhancedArticleCard({
         console.error('Error unliking article:', error);
         setIsLiked(true);
       } else {
-        await analytics.trackLikeEvent(
-          userId, 
-          article.id, 
-          false, 
-          article.category, 
-          article.source
-        );
+        await analytics.trackLikeEvent(userId, article.id, false, article.category, article.source);
       }
     } else {
       const { error } = await supabase
@@ -159,13 +145,7 @@ export default function EnhancedArticleCard({
         console.error('Error liking article:', error);
         setIsLiked(false);
       } else {
-        await analytics.trackLikeEvent(
-          userId, 
-          article.id, 
-          true, 
-          article.category, 
-          article.source
-        );
+        await analytics.trackLikeEvent(userId, article.id, true, article.category, article.source);
       }
     }
   };
@@ -175,7 +155,7 @@ export default function EnhancedArticleCard({
       showToast({
         type: 'warning',
         title: 'Login Required',
-        message: 'You need to be logged in to save articles.'
+        message: 'You need to be logged in to save articles.',
       });
       return;
     }
@@ -208,7 +188,9 @@ export default function EnhancedArticleCard({
   };
 
   const handleReadToggle = async () => {
-    if (!userId || !isSaved) return;
+    if (!userId || !isSaved) {
+      return;
+    }
 
     const newReadState = !isRead;
     setIsRead(newReadState);
@@ -228,7 +210,9 @@ export default function EnhancedArticleCard({
   };
 
   const handleFolderChange = async (folderId: string | null) => {
-    if (!userId || !isSaved) return;
+    if (!userId || !isSaved) {
+      return;
+    }
 
     setCurrentFolderId(folderId);
 
@@ -247,10 +231,12 @@ export default function EnhancedArticleCard({
   };
 
   const handleTagToggle = async (tag: SavedTag) => {
-    if (!userId || !isSaved) return;
+    if (!userId || !isSaved) {
+      return;
+    }
 
-    const isTagged = currentTags.some(t => t.id === tag.id);
-    
+    const isTagged = currentTags.some((t) => t.id === tag.id);
+
     if (isTagged) {
       // Remove tag
       const { error } = await supabase
@@ -265,10 +251,10 @@ export default function EnhancedArticleCard({
         showToast({
           type: 'error',
           title: 'Error removing tag',
-          message: 'Please try again.'
+          message: 'Please try again.',
         });
       } else {
-        const newTags = currentTags.filter(t => t.id !== tag.id);
+        const newTags = currentTags.filter((t) => t.id !== tag.id);
         setCurrentTags(newTags);
         if (onArticleUpdate) {
           onArticleUpdate(article.id, { tags: newTags });
@@ -280,27 +266,28 @@ export default function EnhancedArticleCard({
         showToast({
           type: 'success',
           title: 'Tag removed',
-          message: `"${tag.name}" has been removed from this article.`
+          message: `"${tag.name}" has been removed from this article.`,
         });
       }
     } else {
       // Add tag (use upsert to handle duplicates gracefully)
-      const { error } = await supabase
-        .from('saved_article_tags')
-        .upsert({
+      const { error } = await supabase.from('saved_article_tags').upsert(
+        {
           saved_article_user_id: userId,
           saved_article_article_id: article.id,
-          tag_id: tag.id
-        }, {
-          onConflict: 'saved_article_user_id,saved_article_article_id,tag_id'
-        });
+          tag_id: tag.id,
+        },
+        {
+          onConflict: 'saved_article_user_id,saved_article_article_id,tag_id',
+        }
+      );
 
       if (error) {
         console.error('Error adding tag:', error);
         showToast({
           type: 'error',
           title: 'Error adding tag',
-          message: 'Please try again.'
+          message: 'Please try again.',
         });
       } else {
         const newTags = [...currentTags, tag];
@@ -315,52 +302,57 @@ export default function EnhancedArticleCard({
         showToast({
           type: 'success',
           title: 'Tag added',
-          message: `"${tag.name}" has been added to this article.`
+          message: `"${tag.name}" has been added to this article.`,
         });
       }
     }
   };
 
-  const currentFolder = folders.find(f => f.id === currentFolderId);
+  const currentFolder = folders.find((f) => f.id === currentFolderId);
 
   return (
     <div className={`border rounded-lg p-4 flex flex-col relative ${isRead ? 'opacity-60' : ''}`}>
       {article.image_url && (
-        <img src={article.image_url} alt={article.title} className="w-full h-48 object-cover rounded-md mb-4" />
+        <img
+          src={article.image_url}
+          alt={article.title}
+          className="w-full h-48 object-cover rounded-md mb-4"
+        />
       )}
-      
+
       {/* Category badge */}
-      {article.category && (() => {
-        const categoryStyle = getCategoryStyle(cleanText(article.category));
-        const IconComponent = categoryStyle.icon;
-        
-        return (
-          <span
-            className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full mb-2 w-fit"
-            style={{
-              backgroundColor: categoryStyle.bgColor,
-              color: categoryStyle.color
-            }}
-          >
-            <IconComponent className="h-3 w-3" />
-            {cleanText(article.category)}
-          </span>
-        );
-      })()}
-      
+      {article.category &&
+        (() => {
+          const categoryStyle = getCategoryStyle(cleanText(article.category));
+          const IconComponent = categoryStyle.icon;
+
+          return (
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full mb-2 w-fit"
+              style={{
+                backgroundColor: categoryStyle.bgColor,
+                color: categoryStyle.color,
+              }}
+            >
+              <IconComponent className="h-3 w-3" />
+              {cleanText(article.category)}
+            </span>
+          );
+        })()}
+
       <Link href={`/article/${article.slug || article.id}`}>
-        <h2 className="text-xl font-semibold mb-2 hover:text-blue-600 cursor-pointer transition-colors">{cleanText(article.title)}</h2>
+        <h2 className="text-xl font-semibold mb-2 hover:text-blue-600 cursor-pointer transition-colors">
+          {cleanText(article.title)}
+        </h2>
       </Link>
       <div className="text-sm text-gray-500 mb-2 space-y-1">
-        {article.source && (
-          <p className="font-medium">{cleanText(article.source)}</p>
-        )}
+        {article.source && <p className="font-medium">{cleanText(article.source)}</p>}
         {article.published_at && (
           <p>
             {new Date(article.published_at).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
-              day: 'numeric'
+              day: 'numeric',
             })}
           </p>
         )}
@@ -374,31 +366,31 @@ export default function EnhancedArticleCard({
           {currentFolder && (
             <div className="flex items-center gap-1">
               <Folder className="h-3 w-3" />
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className="text-xs"
-                style={{ 
+                style={{
                   borderColor: currentFolder.color,
-                  color: currentFolder.color
+                  color: currentFolder.color,
                 }}
               >
                 {currentFolder.name}
               </Badge>
             </div>
           )}
-          
+
           {/* Tags */}
           {currentTags.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
               <Tag className="h-3 w-3" />
-              {currentTags.map(tag => (
-                <Badge 
+              {currentTags.map((tag) => (
+                <Badge
                   key={tag.id}
-                  variant="outline" 
+                  variant="outline"
                   className="text-xs"
-                  style={{ 
+                  style={{
                     borderColor: tag.color,
-                    color: tag.color
+                    color: tag.color,
                   }}
                 >
                   {tag.name}
@@ -429,7 +421,7 @@ export default function EnhancedArticleCard({
               onChange={(e) => handleFolderChange(e.target.value || null)}
             >
               <option value="">No folder</option>
-              {folders.map(folder => (
+              {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.name}
                 </option>
@@ -441,12 +433,14 @@ export default function EnhancedArticleCard({
           <div>
             <label className="text-sm font-medium mb-1 block">Tags</label>
             <div className="flex flex-wrap gap-1">
-              {tags.map(tag => (
+              {tags.map((tag) => (
                 <Badge
                   key={tag.id}
-                  variant={currentTags.some(t => t.id === tag.id) ? "default" : "outline"}
+                  variant={currentTags.some((t) => t.id === tag.id) ? 'default' : 'outline'}
                   className="cursor-pointer text-xs"
-                  style={currentTags.some(t => t.id === tag.id) ? { backgroundColor: tag.color } : {}}
+                  style={
+                    currentTags.some((t) => t.id === tag.id) ? { backgroundColor: tag.color } : {}
+                  }
                   onClick={() => handleTagToggle(tag)}
                 >
                   {tag.name}
@@ -458,7 +452,12 @@ export default function EnhancedArticleCard({
       )}
 
       <div className="flex items-center justify-between mt-auto">
-        <a href={article.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+        <a
+          href={article.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
           Read More
         </a>
         <div className="flex items-center gap-1">
@@ -466,14 +465,14 @@ export default function EnhancedArticleCard({
             <Heart className={`h-5 w-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
           </Button>
           <Button variant="ghost" size="icon" onClick={handleSaveToggle} disabled={!userId}>
-            {isSaved ? <BookmarkCheck className="h-5 w-5 text-blue-500" /> : <Bookmark className="h-5 w-5" />}
+            {isSaved ? (
+              <BookmarkCheck className="h-5 w-5 text-blue-500" />
+            ) : (
+              <Bookmark className="h-5 w-5" />
+            )}
           </Button>
           {showEnhancedControls && isSaved && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowControls(!showControls)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => setShowControls(!showControls)}>
               <MoreHorizontal className="h-5 w-5" />
             </Button>
           )}
@@ -481,12 +480,7 @@ export default function EnhancedArticleCard({
       </div>
 
       {/* Click outside to close controls */}
-      {showControls && (
-        <div 
-          className="fixed inset-0 z-5" 
-          onClick={() => setShowControls(false)}
-        />
-      )}
+      {showControls && <div className="fixed inset-0 z-5" onClick={() => setShowControls(false)} />}
     </div>
   );
 }

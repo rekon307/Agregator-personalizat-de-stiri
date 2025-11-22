@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/toast';
 import { analytics } from '@/lib/analytics';
 import { getCategoryStyle } from '@/lib/category-styles';
+import { cleanText } from '@/lib/utils/text-sanitization';
 import SavedArticlesLimitModal from './saved-articles-limit-modal';
 import Link from 'next/link';
 
@@ -25,26 +26,6 @@ interface ArticleCardProps {
   userId: string | null;
 }
 
-function cleanText(text: string | null | undefined): string {
-  if (!text) return '';
-  
-  return text
-    // Remove CDATA sections
-    .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-    // Decode common HTML entities
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    // Remove any remaining HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Clean up extra whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export default function ArticleCard({ article, userId }: ArticleCardProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -54,7 +35,9 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
 
   useEffect(() => {
     async function checkSavedAndLikedStatus() {
-      if (!userId || !article.id) return;
+      if (!userId || !article.id) {
+        return;
+      }
 
       // Check saved status
       const { data: savedData, error: savedError } = await supabase
@@ -63,8 +46,9 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         .eq('user_id', userId)
         .eq('article_id', article.id)
         .single();
-      
-      if (savedError && savedError.code !== 'PGRST116') { // PGRST116 means no rows found
+
+      if (savedError && savedError.code !== 'PGRST116') {
+        // PGRST116 means no rows found
         console.error('Error checking saved status:', savedError);
       }
       setIsSaved(!!savedData);
@@ -76,8 +60,9 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         .eq('user_id', userId)
         .eq('article_id', article.id)
         .single();
-      
-      if (likedError && likedError.code !== 'PGRST116') { // PGRST116 means no rows found
+
+      if (likedError && likedError.code !== 'PGRST116') {
+        // PGRST116 means no rows found
         console.error('Error checking liked status:', likedError);
       }
       setIsLiked(!!likedData);
@@ -91,7 +76,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
       showToast({
         type: 'warning',
         title: 'Login Required',
-        message: 'You need to be logged in to like articles.'
+        message: 'You need to be logged in to like articles.',
       });
       return;
     }
@@ -114,13 +99,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         setIsLiked(true);
       } else {
         // Track analytics for unlike
-        await analytics.trackLikeEvent(
-          userId, 
-          article.id, 
-          false, 
-          article.category, 
-          article.source
-        );
+        await analytics.trackLikeEvent(userId, article.id, false, article.category, article.source);
       }
     } else {
       // Like article
@@ -134,13 +113,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         setIsLiked(false);
       } else {
         // Track analytics for like
-        await analytics.trackLikeEvent(
-          userId, 
-          article.id, 
-          true, 
-          article.category, 
-          article.source
-        );
+        await analytics.trackLikeEvent(userId, article.id, true, article.category, article.source);
       }
     }
   };
@@ -150,7 +123,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
       showToast({
         type: 'warning',
         title: 'Login Required',
-        message: 'You need to be logged in to save articles.'
+        message: 'You need to be logged in to save articles.',
       });
       return;
     }
@@ -168,30 +141,29 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         showToast({
           type: 'error',
           title: 'Error',
-          message: 'Failed to unsave article. Please try again.'
+          message: 'Failed to unsave article. Please try again.',
         });
       } else {
         setIsSaved(false);
         showToast({
           type: 'success',
           title: 'Article Unsaved',
-          message: 'Article removed from your saved list.'
+          message: 'Article removed from your saved list.',
         });
       }
     } else {
       // Save article with limit check
-      const { data, error } = await supabase
-        .rpc('save_article_with_limit_check', {
-          user_uuid: userId,
-          article_uuid: article.id
-        });
+      const { data, error } = await supabase.rpc('save_article_with_limit_check', {
+        user_uuid: userId,
+        article_uuid: article.id,
+      });
 
       if (error) {
         console.error('Error saving article:', error);
         showToast({
           type: 'error',
           title: 'Error',
-          message: 'Failed to save article. Please try again.'
+          message: 'Failed to save article. Please try again.',
         });
         return;
       }
@@ -202,7 +174,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         showToast({
           type: 'success',
           title: 'Article Saved',
-          message: result.message
+          message: result.message,
         });
       } else {
         // Show limit reached message with beautiful modal
@@ -210,7 +182,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
           showToast({
             type: 'warning',
             title: 'Saved Articles Limit Reached',
-            message: result.message
+            message: result.message,
           });
           // Show the beautiful limit management modal
           setShowLimitModal(true);
@@ -218,7 +190,7 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
           showToast({
             type: 'info',
             title: 'Info',
-            message: result?.message || 'Unable to save article.'
+            message: result?.message || 'Unable to save article.',
           });
         }
       }
@@ -239,23 +211,28 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
         userId={userId || ''}
         onArticleRemoved={handleArticleRemoved}
       />
-      
-        <div className="border rounded-lg p-4 flex flex-col">
-          {article.image_url && (
-            <img src={article.image_url} alt={article.title} className="w-full h-48 object-cover rounded-md mb-4" />
-          )}
-          
-          {/* Category badge */}
-          {article.category && (() => {
+
+      <div className="border rounded-lg p-4 flex flex-col">
+        {article.image_url && (
+          <img
+            src={article.image_url}
+            alt={article.title}
+            className="w-full h-48 object-cover rounded-md mb-4"
+          />
+        )}
+
+        {/* Category badge */}
+        {article.category &&
+          (() => {
             const categoryStyle = getCategoryStyle(cleanText(article.category));
             const IconComponent = categoryStyle.icon;
-            
+
             return (
               <span
                 className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full mb-2 w-fit"
                 style={{
                   backgroundColor: categoryStyle.bgColor,
-                  color: categoryStyle.color
+                  color: categoryStyle.color,
                 }}
               >
                 <IconComponent className="h-3 w-3" />
@@ -263,41 +240,48 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
               </span>
             );
           })()}
-          
-          <Link href={`/article/${article.slug}`}>
-            <h2 className="text-xl font-semibold mb-2 hover:text-blue-600 cursor-pointer transition-colors">
-              {cleanText(article.title)}
-            </h2>
-          </Link>
-          <div className="text-sm text-gray-500 mb-2 space-y-1">
-            {article.source && (
-              <p className="font-medium">{cleanText(article.source)}</p>
-            )}
-            {article.published_at && (
-              <p>
-                {new Date(article.published_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-            )}
-          </div>
-          <p className="text-gray-700 flex-grow mb-4">{cleanText(article.summary)}</p>
-          <div className="flex items-center justify-between mt-auto">
-            <a href={article.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-              Read More
-            </a>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={handleLikeToggle} disabled={!userId}>
-                <Heart className={`h-5 w-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleSaveToggle} disabled={!userId}>
-                {isSaved ? <BookmarkCheck className="h-5 w-5 text-blue-500" /> : <Bookmark className="h-5 w-5" />}
-              </Button>
-            </div>
+
+        <Link href={`/article/${article.slug}`}>
+          <h2 className="text-xl font-semibold mb-2 hover:text-blue-600 cursor-pointer transition-colors">
+            {cleanText(article.title)}
+          </h2>
+        </Link>
+        <div className="text-sm text-gray-500 mb-2 space-y-1">
+          {article.source && <p className="font-medium">{cleanText(article.source)}</p>}
+          {article.published_at && (
+            <p>
+              {new Date(article.published_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          )}
+        </div>
+        <p className="text-gray-700 flex-grow mb-4">{cleanText(article.summary)}</p>
+        <div className="flex items-center justify-between mt-auto">
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Read More
+          </a>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleLikeToggle} disabled={!userId}>
+              <Heart className={`h-5 w-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleSaveToggle} disabled={!userId}>
+              {isSaved ? (
+                <BookmarkCheck className="h-5 w-5 text-blue-500" />
+              ) : (
+                <Bookmark className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
-      </>
+      </div>
+    </>
   );
 }

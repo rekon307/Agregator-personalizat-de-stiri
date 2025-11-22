@@ -1,6 +1,15 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { Bookmark, BookmarkCheck, Heart, Calendar, User, ExternalLink, ArrowLeft, Clock } from 'lucide-react';
+import {
+  Bookmark,
+  BookmarkCheck,
+  Heart,
+  Calendar,
+  User,
+  ExternalLink,
+  ArrowLeft,
+  Clock,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -10,7 +19,12 @@ import RelatedArticles from '@/components/custom/related-articles';
 import ArticleErrorBoundary from '@/components/custom/article-error-boundary';
 import ArticleDetailSkeleton from '@/components/custom/article-detail-skeleton';
 import ArticleNotFound from '@/components/custom/article-not-found';
-import { calculateReadingTime, formatReadingTime, shouldShowReadingTime } from '@/lib/utils/reading-time';
+import {
+  calculateReadingTime,
+  formatReadingTime,
+  shouldShowReadingTime,
+} from '@/lib/utils/reading-time';
+import { cleanText } from '@/lib/utils/text-sanitization';
 
 interface Article {
   id: string;
@@ -47,14 +61,15 @@ function isUUID(str: string): boolean {
 async function getArticle(slugOrId: string): Promise<Article | null> {
   try {
     const supabase = createClient();
-    
+
     // Determine if we're looking for a slug or UUID
     const isId = isUUID(slugOrId);
     const searchField = isId ? 'id' : 'slug';
-    
+
     const { data: article, error } = await supabase
       .from('articles')
-      .select(`
+      .select(
+        `
         *,
         sources (
           id,
@@ -70,7 +85,8 @@ async function getArticle(slugOrId: string): Promise<Article | null> {
             name
           )
         )
-      `)
+      `
+      )
       .eq(searchField, slugOrId)
       .single();
 
@@ -92,7 +108,7 @@ async function getArticle(slugOrId: string): Promise<Article | null> {
 
     // Extract category from sources or article_categories
     let categoryInfo = null;
-    
+
     // First try to get category from source
     if (article.sources?.categories) {
       categoryInfo = article.sources.categories;
@@ -101,11 +117,11 @@ async function getArticle(slugOrId: string): Promise<Article | null> {
     else if (article.article_categories && article.article_categories.length > 0) {
       categoryInfo = article.article_categories[0].categories;
     }
-    
+
     // Add the category info to the article object for easier access
     const enrichedArticle = {
       ...article,
-      categories: categoryInfo
+      categories: categoryInfo,
     };
 
     return enrichedArticle;
@@ -117,29 +133,10 @@ async function getArticle(slugOrId: string): Promise<Article | null> {
 
 async function getUser() {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return user;
-}
-
-
-function cleanText(text: string | null | undefined): string {
-  if (!text) return '';
-  
-  return text
-    // Remove CDATA sections
-    .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-    // Decode common HTML entities
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    // Remove any remaining HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Clean up extra whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 // Create a separate component for the article content to wrap with error boundary
@@ -157,7 +154,7 @@ async function ArticleContent({ params }: { params: { id: string } }) {
     ? new Date(article.published_at).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
       })
     : null;
 
@@ -205,7 +202,10 @@ async function ArticleContent({ params }: { params: { id: string } }) {
             {/* Category Badge */}
             {article.categories && (
               <div className="mb-4">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                >
                   {article.categories.name}
                 </Badge>
               </div>
@@ -226,7 +226,7 @@ async function ArticleContent({ params }: { params: { id: string } }) {
                   </span>
                 </div>
               )}
-              
+
               {/* Author, Date, and Reading Time Line */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 {article.author && (
@@ -235,21 +235,21 @@ async function ArticleContent({ params }: { params: { id: string } }) {
                     <span>{cleanText(article.author)}</span>
                   </div>
                 )}
-                
+
                 {publishedDate && (
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
                     <span>{publishedDate}</span>
                   </div>
                 )}
-                
+
                 {showReadingTime && (
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
                     <span>{formatReadingTime(readingTime)}</span>
                   </div>
                 )}
-                
+
                 {!showReadingTime && (
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
@@ -261,18 +261,17 @@ async function ArticleContent({ params }: { params: { id: string } }) {
 
             {/* Article Interactions with error boundary */}
             <div className="mb-8">
-              <Suspense fallback={
-                <div className="flex items-center gap-2">
-                  <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
-                  <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
-                  <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
-                </div>
-              }>
+              <Suspense
+                fallback={
+                  <div className="flex items-center gap-2">
+                    <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
+                    <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
+                    <div className="animate-pulse bg-gray-200 rounded-lg h-10 w-24"></div>
+                  </div>
+                }
+              >
                 <ArticleErrorBoundary>
-                  <ArticleInteractions
-                    article={article}
-                    userId={user?.id || null}
-                  />
+                  <ArticleInteractions article={article} userId={user?.id || null} />
                 </ArticleErrorBoundary>
               </Suspense>
             </div>
@@ -282,12 +281,13 @@ async function ArticleContent({ params }: { params: { id: string } }) {
               <div className="text-foreground leading-relaxed text-lg mb-8">
                 {cleanText(article.summary) || 'No summary available for this article.'}
               </div>
-              
+
               {/* Read Full Article Link */}
               {article.url && (
                 <div className="bg-muted rounded-lg p-6 text-center border border-border">
                   <p className="text-muted-foreground mb-4">
-                    This is a summary of the article. To read the full content, visit the original source.
+                    This is a summary of the article. To read the full content, visit the original
+                    source.
                   </p>
                   <a
                     href={article.url}
@@ -306,25 +306,27 @@ async function ArticleContent({ params }: { params: { id: string } }) {
 
         {/* Related Articles Section with error boundary */}
         <div className="mt-12">
-          <Suspense fallback={
-            <div className="bg-card rounded-lg shadow-sm p-6 md:p-8 border border-border">
-              <div className="mb-6">
-                <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="border border-border rounded-lg overflow-hidden">
-                    <div className="aspect-video w-full bg-muted animate-pulse"></div>
-                    <div className="p-4 space-y-2">
-                      <div className="h-4 bg-muted rounded animate-pulse"></div>
-                      <div className="h-4 w-4/5 bg-muted rounded animate-pulse"></div>
+          <Suspense
+            fallback={
+              <div className="bg-card rounded-lg shadow-sm p-6 md:p-8 border border-border">
+                <div className="mb-6">
+                  <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+                  <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="border border-border rounded-lg overflow-hidden">
+                      <div className="aspect-video w-full bg-muted animate-pulse"></div>
+                      <div className="p-4 space-y-2">
+                        <div className="h-4 bg-muted rounded animate-pulse"></div>
+                        <div className="h-4 w-4/5 bg-muted rounded animate-pulse"></div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          }>
+            }
+          >
             <ArticleErrorBoundary>
               <RelatedArticles
                 currentArticleId={article.id}
